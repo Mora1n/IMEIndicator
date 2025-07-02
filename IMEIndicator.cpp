@@ -36,7 +36,7 @@ enum IndicatorPosition {
     POS_BOTTOMLEFT,
     POS_BOTTOMRIGHT
 };
-IndicatorPosition g_indicatorPos = POS_CENTER;
+IndicatorPosition g_indicatorPos = POS_BOTTOMRIGHT;
 
 LRESULT CALLBACK MainWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK IndicatorWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
