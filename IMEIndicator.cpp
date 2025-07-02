@@ -20,6 +20,7 @@ HWND g_hIndicatorWnd = NULL;
 const UINT_PTR HIDE_TIMER_ID = 1;
 wchar_t g_szIndicatorText[256] = L"";
 HFONT g_hIndicatorFont = NULL;
+HBRUSH g_hBackgroundBrush = NULL;
 static HKL g_lastHkl = NULL;
 static std::wstring g_lastImeString = L"";
 #define WM_APP_CHECK_IME (WM_APP + 1)
@@ -57,8 +58,7 @@ bool IsKeyDown(int vkCode) {
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int /*nCmdShow*/) {
     ParseCommandLine(pCmdLine);
 
-    g_indicatorWidth = static_cast<int>(g_fontSize * 2.0);
-    g_indicatorHeight = static_cast<int>(g_fontSize * 2.0);
+
 
     const wchar_t MAIN_CLASS_NAME[] = L"MainHiddenImeListener";
     WNDCLASSW wc = {};
@@ -105,7 +105,8 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             wc.lpfnWndProc = IndicatorWndProc;
             wc.hInstance = (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE);
             wc.lpszClassName = INDICATOR_CLASS_NAME;
-            wc.hbrBackground = (HBRUSH)CreateSolidBrush(RGB(0, 0, 0));
+            g_hBackgroundBrush = CreateSolidBrush(RGB(0, 0, 0));
+            wc.hbrBackground = g_hBackgroundBrush;
             wc.hCursor = LoadCursor(NULL, IDC_ARROW);
             RegisterClassW(&wc);
 
@@ -144,7 +145,7 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 x, y, g_indicatorWidth, g_indicatorHeight,
                 NULL, NULL, (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE), NULL
             );
-            
+
             SetLayeredWindowAttributes(g_hIndicatorWnd, 0, (255 * g_alphaPercent) / 100, LWA_ALPHA);
 
             HDC hdc = GetDC(g_hIndicatorWnd);
@@ -165,18 +166,21 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (g_hIndicatorFont) {
                 DeleteObject(g_hIndicatorFont);
             }
+            if (g_hBackgroundBrush) {
+                DeleteObject(g_hBackgroundBrush);
+            }
             PostQuitMessage(0);
             break;
         }
 
-        case WM_INPUTLANGCHANGE: 
+        case WM_INPUTLANGCHANGE:
         case WM_APP_CHECK_IME: {
             Sleep(30);
             std::wstring lang = GetCurrentInputLanguage();
             ShowIndicator(lang);
             break;
         }
-        
+
         case WM_TIMER: {
             if (wParam == HIDE_TIMER_ID) {
                 ShowWindow(g_hIndicatorWnd, SW_HIDE);
@@ -323,6 +327,52 @@ void ShowIndicator(const std::wstring& text) {
 
     wcsncpy(g_szIndicatorText, text.c_str(), 255);
     g_szIndicatorText[255] = L'\0';
+
+    HDC hdc = GetDC(g_hIndicatorWnd);
+    HFONT hOldFont = (HFONT)SelectObject(hdc, g_hIndicatorFont);
+
+    SIZE textSize;
+    GetTextExtentPoint32W(hdc, g_szIndicatorText, (int)wcslen(g_szIndicatorText), &textSize);
+
+    SelectObject(hdc, hOldFont);
+    ReleaseDC(g_hIndicatorWnd, hdc);
+
+    // Use predefined multipliers for size
+    g_indicatorWidth = static_cast<int>(textSize.cx * 1.2);
+    g_indicatorHeight = static_cast<int>(textSize.cy * 1.2);
+
+    // Recalculate position based on new size
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    int x, y;
+    int margin = 10;
+
+    switch (g_indicatorPos) {
+        case POS_TOPLEFT:
+            x = margin;
+            y = margin;
+            break;
+        case POS_TOPRIGHT:
+            x = screenWidth - g_indicatorWidth - margin;
+            y = margin;
+            break;
+        case POS_BOTTOMLEFT:
+            x = margin;
+            y = screenHeight - g_indicatorHeight - margin;
+            break;
+        case POS_BOTTOMRIGHT:
+            x = screenWidth - g_indicatorWidth - margin;
+            y = screenHeight - g_indicatorHeight - margin;
+            break;
+        case POS_CENTER:
+        default:
+            x = (screenWidth - g_indicatorWidth) / 2;
+            y = (screenHeight - g_indicatorHeight) / 2;
+            break;
+    }
+
+    SetWindowPos(g_hIndicatorWnd, NULL, x, y, g_indicatorWidth, g_indicatorHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+
     ShowWindow(g_hIndicatorWnd, SW_SHOWNA);
     InvalidateRect(g_hIndicatorWnd, NULL, TRUE);
     UpdateWindow(g_hIndicatorWnd);
@@ -360,7 +410,7 @@ std::wstring GetCurrentInputLanguage() {
             currentImeString = L"ENG";
         }
     }
-    
+
     g_lastImeString = currentImeString;
     return currentImeString;
 }

@@ -2,8 +2,8 @@ CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++11
 LDFLAGS = -lgdi32 -luser32 -limm32 -lshell32 -mwindows
 
-TARGET = ime_indicator.exe
-SOURCES = ime_indicator.cpp
+TARGET = IMEIndicator.exe
+SOURCES = IMEIndicator.cpp
 
 all: $(TARGET)
 
