@@ -25,8 +25,8 @@ static HKL g_lastHkl = NULL;
 static std::wstring g_lastImeString = L"";
 #define WM_APP_CHECK_IME (WM_APP + 1)
 
-int g_indicatorWidth = 0;
-int g_indicatorHeight = 0;
+int g_indicatorWidth = 100;
+int g_indicatorHeight = 50;
 int g_fontSize = 20;
 int g_alphaPercent = 50;
 enum IndicatorPosition {
@@ -323,7 +323,13 @@ void ParseCommandLine(PWSTR pCmdLine) {
  * @brief Displays the IME indicator window.
  */
 void ShowIndicator(const std::wstring& text) {
-    if (!g_hIndicatorWnd || !g_hMainWnd || text.empty()) return;
+    std::wstring displayText = text;
+    if (displayText.empty()) {
+        displayText = L"..."; // Default text if IME string is empty
+    }
+    if (!g_hIndicatorWnd || !g_hMainWnd) return;
+
+    wcsncpy(g_szIndicatorText, displayText.c_str(), 255);
 
     wcsncpy(g_szIndicatorText, text.c_str(), 255);
     g_szIndicatorText[255] = L'\0';

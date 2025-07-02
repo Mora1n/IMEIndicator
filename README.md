@@ -10,6 +10,7 @@ This lightweight C++ application provides an on-screen indicator for the current
 *   **Clear Indication**: Displays "拼" for Microsoft Pinyin (Chinese/English mode) and "ENG" for Microsoft Pinyin (English mode).
 *   **Configurable Display**: Customize font size, transparency, and on-screen position.
 *   **Specific Hotkey Triggering**: Activates only on common IME switching hotkeys (Shift, Shift+Alt, Shift+Ctrl, Win+Space, Ctrl+Space).
+*   **Improved Startup Reliability**: Ensures the indicator window is visible immediately upon launch, even without initial IME changes.
 
 ## Usage
 
