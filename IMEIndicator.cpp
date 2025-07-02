@@ -79,7 +79,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int /*nCmdSh
     }
 
     g_hKeyboardHook = SetWindowsHookExW(WH_KEYBOARD_LL, LowLevelKeyboardProc, hInstance, 0);
-    PostMessage(g_hMainWnd, WM_APP_CHECK_IME, 0, 0);
+    ShowIndicator(GetCurrentInputLanguage());
 
     MSG msg = {};
     while (GetMessage(&msg, NULL, 0, 0)) {
@@ -330,8 +330,6 @@ void ShowIndicator(const std::wstring& text) {
     if (!g_hIndicatorWnd || !g_hMainWnd) return;
 
     wcsncpy(g_szIndicatorText, displayText.c_str(), 255);
-
-    wcsncpy(g_szIndicatorText, text.c_str(), 255);
     g_szIndicatorText[255] = L'\0';
 
     HDC hdc = GetDC(g_hIndicatorWnd);

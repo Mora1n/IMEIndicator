@@ -1,8 +1,8 @@
 CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++11
-LDFLAGS = -lgdi32 -luser32 -limm32 -lshell32 -mwindows
+LDFLAGS = -static -lgdi32 -luser32 -limm32 -lshell32 -mwindows
 
-TARGET = IMEIndicator.exe
+TARGET = imei.exe
 SOURCES = IMEIndicator.cpp
 
 all: $(TARGET)
