@@ -1,5 +1,6 @@
 #ifndef UNICODE
 #define UNICODE
+#include <cstdio>
 #endif
 #ifndef _UNICODE
 #define _UNICODE
@@ -95,7 +96,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int /*nCmdSh
 }
 
 /**
- * @brief Window procedure for the main hidden window.
+ * @brief Window procedure for the main hidden window
  */
 LRESULT CALLBACK MainWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
@@ -392,8 +393,8 @@ std::wstring GetCurrentInputLanguage() {
     HWND fgWnd = GetForegroundWindow();
     if (!fgWnd) return L"";
 
-    DWORD threadId = GetWindowThreadProcessId(fgWnd, NULL);
-    HKL hkl = GetKeyboardLayout(threadId);
+    DWORD fgThreadId = GetWindowThreadProcessId(fgWnd, NULL);
+    HKL hkl = GetKeyboardLayout(fgThreadId);
 
     if (hkl == g_lastHkl) {
         return g_lastImeString;
@@ -402,17 +403,12 @@ std::wstring GetCurrentInputLanguage() {
     g_lastHkl = hkl;
 
     LANGID langId = LOWORD(hkl);
-    wchar_t layoutName[KL_NAMELENGTH] = {0};
-    GetKeyboardLayoutNameW(layoutName);
-
     std::wstring currentImeString = L"";
 
-    if (wcscmp(layoutName, L"00000804") == 0) {
-        if (langId == 2052) {
-            currentImeString = L"拼";
-        } else {
-            currentImeString = L"ENG";
-        }
+    if (PRIMARYLANGID(langId) == LANG_CHINESE) {
+        currentImeString = L"拼";
+    } else {
+        currentImeString = L"ENG";
     }
 
     g_lastImeString = currentImeString;
