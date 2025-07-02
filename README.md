@@ -33,17 +33,6 @@ imei.exe [OPTIONS]
     *   Default: `50`
     *   Example: `imei.exe --alpha 75` or `imei.exe -a 75`
 
-**Example Combinations:**
-
-```bash
-# Run with default settings
-start "" "imei.exe"
-
-# Run with 36pt font, 75% transparency, at the bottom-right
-# Note: The empty double quotes "" are crucial for passing arguments correctly when using 'start' in PowerShell/CMD.
-start "" "imei.exe --size=36 --alpha=75 --pos=bottomright"
-start "" "imei.exe -s 36 -a 75 -p bottomright"
-```
 
 **To Terminate:** Use Task Manager (Ctrl+Shift+Esc), find `imei.exe`, and click "End task".
 

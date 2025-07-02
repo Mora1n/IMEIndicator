@@ -232,32 +232,37 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         KBDLLHOOKSTRUCT* pkbhs = (KBDLLHOOKSTRUCT*)lParam;
         bool trigger = false;
 
+        bool isControlDown = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+        bool isShiftDown = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+        bool isAltDown = (GetKeyState(VK_MENU) & 0x8000) != 0;
+        bool isWinDown = (GetKeyState(VK_LWIN) & 0x8000) != 0 || (GetKeyState(VK_RWIN) & 0x8000) != 0;
+
         if (pkbhs->vkCode == VK_SHIFT || pkbhs->vkCode == VK_LSHIFT || pkbhs->vkCode == VK_RSHIFT) {
-            if (!IsKeyDown(VK_CONTROL) && !IsKeyDown(VK_MENU) && !IsKeyDown(VK_LWIN) && !IsKeyDown(VK_RWIN)) {
+            if (!isControlDown && !isAltDown && !isWinDown) {
                 trigger = true;
             }
-            else if ((pkbhs->flags & LLKHF_ALTDOWN) && !IsKeyDown(VK_CONTROL) && !IsKeyDown(VK_LWIN) && !IsKeyDown(VK_RWIN)) {
+            else if ((pkbhs->flags & LLKHF_ALTDOWN) && !isControlDown && !isWinDown) {
                 trigger = true;
             }
-            else if ((IsKeyDown(VK_CONTROL) || IsKeyDown(VK_LCONTROL) || IsKeyDown(VK_RCONTROL)) && !(pkbhs->flags & LLKHF_ALTDOWN) && !IsKeyDown(VK_LWIN) && !IsKeyDown(VK_RWIN)) {
+            else if (isControlDown && !(pkbhs->flags & LLKHF_ALTDOWN) && !isWinDown) {
                 trigger = true;
             }
         }
         else if (pkbhs->vkCode == VK_MENU || pkbhs->vkCode == VK_LMENU || pkbhs->vkCode == VK_RMENU) {
-            if ((IsKeyDown(VK_SHIFT) || IsKeyDown(VK_LSHIFT) || IsKeyDown(VK_RSHIFT)) && !IsKeyDown(VK_CONTROL) && !IsKeyDown(VK_LWIN) && !IsKeyDown(VK_RWIN)) {
+            if (isShiftDown && !isControlDown && !isWinDown) {
                 trigger = true;
             }
         }
         else if (pkbhs->vkCode == VK_CONTROL || pkbhs->vkCode == VK_LCONTROL || pkbhs->vkCode == VK_RCONTROL) {
-            if ((IsKeyDown(VK_SHIFT) || IsKeyDown(VK_LSHIFT) || IsKeyDown(VK_RSHIFT)) && !(pkbhs->flags & LLKHF_ALTDOWN) && !IsKeyDown(VK_LWIN) && !IsKeyDown(VK_RWIN)) {
+            if (isShiftDown && !(pkbhs->flags & LLKHF_ALTDOWN) && !isWinDown) {
                 trigger = true;
             }
         }
         else if (pkbhs->vkCode == VK_SPACE) {
-            if ((IsKeyDown(VK_LWIN) || IsKeyDown(VK_RWIN)) && !IsKeyDown(VK_CONTROL) && !(pkbhs->flags & LLKHF_ALTDOWN) && !IsKeyDown(VK_SHIFT)) {
+            if (isWinDown && !isControlDown && !(pkbhs->flags & LLKHF_ALTDOWN) && !isShiftDown) {
                 trigger = true;
             }
-            else if ((IsKeyDown(VK_CONTROL) || IsKeyDown(VK_LCONTROL) || IsKeyDown(VK_RCONTROL)) && !(pkbhs->flags & LLKHF_ALTDOWN) && !IsKeyDown(VK_LWIN) && !IsKeyDown(VK_RWIN) && !IsKeyDown(VK_SHIFT)) {
+            else if (isControlDown && !(pkbhs->flags & LLKHF_ALTDOWN) && !isWinDown && !isShiftDown) {
                 trigger = true;
             }
         }
@@ -324,6 +329,13 @@ void ParseCommandLine(PWSTR pCmdLine) {
  * @brief Displays the IME indicator window.
  */
 void ShowIndicator(const std::wstring& text) {
+    if (text == g_szIndicatorText && IsWindowVisible(g_hIndicatorWnd)) {
+        // If the text is the same and the window is already visible, just reset the timer
+        KillTimer(g_hMainWnd, HIDE_TIMER_ID);
+        SetTimer(g_hMainWnd, HIDE_TIMER_ID, 1500, NULL);
+        return;
+    }
+
     std::wstring displayText = text;
     if (displayText.empty()) {
         displayText = L"..."; // Default text if IME string is empty
