@@ -21,9 +21,12 @@ HWND g_hIndicatorWnd = NULL;
 const UINT_PTR HIDE_TIMER_ID = 1;
 wchar_t g_szIndicatorText[256] = L"";
 HFONT g_hIndicatorFont = NULL;
+HFONT g_hTimeFont = NULL;
 HBRUSH g_hBackgroundBrush = NULL;
 static std::wstring g_lastImeString = L"";
 #define WM_APP_CHECK_IME (WM_APP + 1)
+const UINT_PTR TIME_TIMER_ID = 2;
+wchar_t g_szTimeText[256] = L"";
 
 int g_indicatorWidth = 100;
 int g_indicatorHeight = 50;
@@ -155,7 +158,14 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                 DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI"
             );
+            g_hTimeFont = CreateFontW(
+                -MulDiv(g_fontSize / 2, GetDeviceCaps(hdc, LOGPIXELSY), 72),
+                0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI"
+            );
             ReleaseDC(g_hIndicatorWnd, hdc);
+            SetTimer(hwnd, TIME_TIMER_ID, 1000, NULL); // 1-second timer for time update
             break;
         }
 
@@ -165,6 +175,9 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             if (g_hIndicatorFont) {
                 DeleteObject(g_hIndicatorFont);
+            }
+            if (g_hTimeFont) {
+                DeleteObject(g_hTimeFont);
             }
             if (g_hBackgroundBrush) {
                 DeleteObject(g_hBackgroundBrush);
@@ -185,6 +198,12 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (wParam == HIDE_TIMER_ID) {
                 ShowWindow(g_hIndicatorWnd, SW_HIDE);
                 KillTimer(hwnd, HIDE_TIMER_ID);
+            } else if (wParam == TIME_TIMER_ID) {
+                SYSTEMTIME st;
+                GetLocalTime(&st);
+                wsprintfW(g_szTimeText, L"%02d:%02d:%02d", st.wHour, st.wMinute, st.wSecond);
+                InvalidateRect(g_hIndicatorWnd, NULL, TRUE);
+                UpdateWindow(g_hIndicatorWnd);
             }
             break;
         }
@@ -211,7 +230,20 @@ LRESULT CALLBACK IndicatorWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 
             RECT rect;
             GetClientRect(hwnd, &rect);
-            DrawTextW(hdc, g_szIndicatorText, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+            SIZE textSizeIndicator;
+            GetTextExtentPoint32W(hdc, g_szIndicatorText, (int)wcslen(g_szIndicatorText), &textSizeIndicator);
+
+            // Draw indicator text
+            RECT indicatorTextRect = {rect.left, rect.top, rect.right, rect.bottom}; 
+            DrawTextW(hdc, g_szIndicatorText, -1, &indicatorTextRect, DT_CENTER | DT_SINGLELINE);
+
+            // Draw time text below indicator
+            HFONT hOldFontTime = (HFONT)SelectObject(hdc, g_hTimeFont);
+            RECT timeRect = rect;
+            timeRect.top = indicatorTextRect.top + textSizeIndicator.cy;
+            DrawTextW(hdc, g_szTimeText, -1, &timeRect, DT_CENTER | DT_SINGLELINE);
+            SelectObject(hdc, hOldFontTime);
 
             SelectObject(hdc, hOldFont);
             EndPaint(hwnd, &ps);
@@ -345,15 +377,19 @@ void ShowIndicator(const std::wstring& text) {
     HDC hdc = GetDC(g_hIndicatorWnd);
     HFONT hOldFont = (HFONT)SelectObject(hdc, g_hIndicatorFont);
 
-    SIZE textSize;
-    GetTextExtentPoint32W(hdc, g_szIndicatorText, (int)wcslen(g_szIndicatorText), &textSize);
+    SIZE textSizeIndicator;
+    GetTextExtentPoint32W(hdc, g_szIndicatorText, (int)wcslen(g_szIndicatorText), &textSizeIndicator);
+
+    SelectObject(hdc, g_hTimeFont);
+    SIZE textSizeTime;
+    GetTextExtentPoint32W(hdc, g_szTimeText, (int)wcslen(g_szTimeText), &textSizeTime);
 
     SelectObject(hdc, hOldFont);
     ReleaseDC(g_hIndicatorWnd, hdc);
 
     // Use predefined multipliers for size
-    g_indicatorWidth = static_cast<int>(textSize.cx * 1.2);
-    g_indicatorHeight = static_cast<int>(textSize.cy * 1.2);
+    g_indicatorWidth = static_cast<int>(std::max(textSizeIndicator.cx, textSizeTime.cx) * 1.05);
+    g_indicatorHeight = static_cast<int>((textSizeIndicator.cy + textSizeTime.cy) * 1.05);
 
     // Recalculate position based on new size
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);

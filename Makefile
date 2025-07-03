@@ -11,4 +11,4 @@ $(TARGET): $(SOURCES)
 	$(CXX) $(CXXFLAGS) $(SOURCES) -o $(TARGET) $(LDFLAGS)
 
 clean:
-	rm -f $(TARGET) *.o
+	del $(TARGET) *.o

@@ -5,6 +5,7 @@ A lightweight Windows application to display the current Input Method Editor (IM
 ## Features
 
 *   **Clear Indication**: Shows "拼" for Chinese IME and "ENG" for other input methods.
+*   **Current Time Display**: Shows the current time.
 *   **Configurable**: Customize position, font size, and transparency via command-line arguments.
 *   **Low Resource Usage**: Built with pure Win32 API for efficiency.
 *   **Hotkey Triggered**: Activates on common IME switching hotkeys (e.g., Shift, Ctrl+Space, Win+Space).
@@ -37,16 +38,16 @@ imei.exe [OPTIONS]
 
 ### Compilation
 
-Navigate to the source directory and use `mingw32-make.exe` or `g++` directly.
+Navigate to the source directory and use `mingw32-make.exe`.
 
-**Using `mingw32-make.exe`:**
+**Using `mingw32-make.exe` (64-bit build):**
 
 ```bash
 mingw32-make.exe
 ```
 
-**Using `g++` directly:**
+**Using `x86_64-w64-mingw32-g++` directly (64-bit build):**
 
 ```bash
-g++ IMEIndicator.cpp -o imei.exe -lgdi32 -luser32 -limm32 -lshell32 -mwindows
+x86_64-w64-mingw32-g++ IMEIndicator.cpp -o imei.exe -lgdi32 -luser32 -limm32 -lshell32 -mwindows
 ```
