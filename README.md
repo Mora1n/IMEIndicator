@@ -1,19 +1,17 @@
-# IMEI - IME Indicator for Windows 11
+# IMEIndicator
 
-## Purpose
-
-This lightweight C++ application provides an on-screen indicator for the current input method (IME) or keyboard layout, especially useful when the taskbar is hidden. It aims to solve the problem of not knowing whether Microsoft Pinyin is active (and in Chinese or English mode) or if an English keyboard layout is in use.
+A lightweight Windows application to display the current Input Method Editor (IME) status on-screen. Useful when the taskbar IME indicator is not visible.
 
 ## Features
 
-*   **Low Resource Usage**: Built with pure Win32 API for efficiency, optimized for performance and minimal memory footprint.
-*   **Clear Indication**: Displays "拼" for Microsoft Pinyin (Chinese/English mode) and "ENG" for Microsoft Pinyin (English mode).
-*   **Configurable Display**: Customize font size, transparency, and on-screen position.
-*   **Specific Hotkey Triggering**: Activates only on common IME switching hotkeys (Shift, Shift+Alt, Shift+Ctrl, Win+Space, Ctrl+Space).
+*   **Clear Indication**: Shows "拼" for Chinese IME and "ENG" for other input methods.
+*   **Configurable**: Customize position, font size, and transparency via command-line arguments.
+*   **Low Resource Usage**: Built with pure Win32 API for efficiency.
+*   **Hotkey Triggered**: Activates on common IME switching hotkeys (e.g., Shift, Ctrl+Space, Win+Space).
 
 ## Usage
 
-Run `imei.exe` with optional command-line arguments.
+Run `imei.exe` with optional arguments:
 
 ```bash
 imei.exe [OPTIONS]
@@ -21,20 +19,15 @@ imei.exe [OPTIONS]
 
 **Options:**
 
-*   `--pos <position>` or `-p <position>`: Sets the display position.
+*   `-p, --pos <position>`: Sets display position.
     *   `center` (default), `topleft`, `topright`, `bottomleft`, `bottomright`.
-    *   Example: `imei.exe --pos topleft` or `imei.exe -p topleft`
+    *   Example: `imei.exe -p topleft`
+*   `-s, --size <points>`: Sets font size in points (default: `20`).
+    *   Example: `imei.exe -s 36`
+*   `-a, --alpha <percentage>`: Sets transparency (0-100, default: `50`).
+    *   Example: `imei.exe -a 75`
 
-*   `--size <points>` or `-s <points>`: Sets the font size in points.
-    *   Default: `20`
-    *   Example: `imei.exe --size 36` or `imei.exe -s 36`
-
-*   `--alpha <percentage>` or `-a <percentage>`: Sets transparency (0-100).
-    *   Default: `50`
-    *   Example: `imei.exe --alpha 75` or `imei.exe -a 75`
-
-
-**To Terminate:** Use Task Manager (Ctrl+Shift+Esc), find `imei.exe`, and click "End task".
+**To Terminate:** Use Task Manager (Ctrl+Shift+Esc), find `imei.exe`, and end the task.
 
 ## Building from Source
 
@@ -44,7 +37,7 @@ imei.exe [OPTIONS]
 
 ### Compilation
 
-Navigate to the source directory and use `mingw32-make.exe` (if installed) or `g++` directly.
+Navigate to the source directory and use `mingw32-make.exe` or `g++` directly.
 
 **Using `mingw32-make.exe`:**
 

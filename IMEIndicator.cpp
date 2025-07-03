@@ -22,7 +22,6 @@ const UINT_PTR HIDE_TIMER_ID = 1;
 wchar_t g_szIndicatorText[256] = L"";
 HFONT g_hIndicatorFont = NULL;
 HBRUSH g_hBackgroundBrush = NULL;
-static HKL g_lastHkl = NULL;
 static std::wstring g_lastImeString = L"";
 #define WM_APP_CHECK_IME (WM_APP + 1)
 
@@ -237,34 +236,32 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         bool isAltDown = (GetKeyState(VK_MENU) & 0x8000) != 0;
         bool isWinDown = (GetKeyState(VK_LWIN) & 0x8000) != 0 || (GetKeyState(VK_RWIN) & 0x8000) != 0;
 
-        if (pkbhs->vkCode == VK_SHIFT || pkbhs->vkCode == VK_LSHIFT || pkbhs->vkCode == VK_RSHIFT) {
-            if (!isControlDown && !isAltDown && !isWinDown) {
-                trigger = true;
-            }
-            else if ((pkbhs->flags & LLKHF_ALTDOWN) && !isControlDown && !isWinDown) {
-                trigger = true;
-            }
-            else if (isControlDown && !(pkbhs->flags & LLKHF_ALTDOWN) && !isWinDown) {
-                trigger = true;
-            }
+        // Check for Shift hotkeys
+        if ((pkbhs->vkCode == VK_SHIFT || pkbhs->vkCode == VK_LSHIFT || pkbhs->vkCode == VK_RSHIFT) &&
+            ((!isControlDown && !isAltDown && !isWinDown) || // Plain Shift
+             ((pkbhs->flags & LLKHF_ALTDOWN) && !isControlDown && !isWinDown) || // Shift + Alt (Shift released)
+             (isControlDown && !(pkbhs->flags & LLKHF_ALTDOWN) && !isWinDown))) // Shift + Ctrl (Shift released)
+        {
+            trigger = true;
         }
-        else if (pkbhs->vkCode == VK_MENU || pkbhs->vkCode == VK_LMENU || pkbhs->vkCode == VK_RMENU) {
-            if (isShiftDown && !isControlDown && !isWinDown) {
-                trigger = true;
-            }
+        // Check for Alt hotkeys (when Alt is the released key)
+        else if ((pkbhs->vkCode == VK_MENU || pkbhs->vkCode == VK_LMENU || pkbhs->vkCode == VK_RMENU) &&
+                 (isShiftDown && !isControlDown && !isWinDown)) // Shift + Alt (Alt released)
+        {
+            trigger = true;
         }
-        else if (pkbhs->vkCode == VK_CONTROL || pkbhs->vkCode == VK_LCONTROL || pkbhs->vkCode == VK_RCONTROL) {
-            if (isShiftDown && !(pkbhs->flags & LLKHF_ALTDOWN) && !isWinDown) {
-                trigger = true;
-            }
+        // Check for Ctrl hotkeys (when Ctrl is the released key)
+        else if ((pkbhs->vkCode == VK_CONTROL || pkbhs->vkCode == VK_LCONTROL || pkbhs->vkCode == VK_RCONTROL) &&
+                 (isShiftDown && !(pkbhs->flags & LLKHF_ALTDOWN) && !isWinDown)) // Shift + Ctrl (Ctrl released)
+        {
+            trigger = true;
         }
-        else if (pkbhs->vkCode == VK_SPACE) {
-            if (isWinDown && !isControlDown && !(pkbhs->flags & LLKHF_ALTDOWN) && !isShiftDown) {
-                trigger = true;
-            }
-            else if (isControlDown && !(pkbhs->flags & LLKHF_ALTDOWN) && !isWinDown && !isShiftDown) {
-                trigger = true;
-            }
+        // Check for Space hotkeys (when Space is the released key)
+        else if (pkbhs->vkCode == VK_SPACE &&
+                 ((isWinDown && !isControlDown && !(pkbhs->flags & LLKHF_ALTDOWN) && !isShiftDown) || // Win + Space
+                  (isControlDown && !(pkbhs->flags & LLKHF_ALTDOWN) && !isWinDown && !isShiftDown))) // Ctrl + Space
+        {
+            trigger = true;
         }
 
         if (trigger) {
@@ -408,19 +405,13 @@ std::wstring GetCurrentInputLanguage() {
     DWORD fgThreadId = GetWindowThreadProcessId(fgWnd, NULL);
     HKL hkl = GetKeyboardLayout(fgThreadId);
 
-    if (hkl == g_lastHkl) {
-        return g_lastImeString;
-    }
-
-    g_lastHkl = hkl;
-
     LANGID langId = LOWORD(hkl);
     std::wstring currentImeString = L"";
 
     if (PRIMARYLANGID(langId) == LANG_CHINESE) {
-        currentImeString = L"拼";
+        currentImeString = L"拼";  // Chinese IME
     } else {
-        currentImeString = L"ENG";
+        currentImeString = L"ENG"; // Non-Chinese IME
     }
 
     g_lastImeString = currentImeString;
