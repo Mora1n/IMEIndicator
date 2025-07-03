@@ -21,11 +21,11 @@ imei.exe [OPTIONS]
 
 *   `-p, --pos <position>`: Sets display position.
     *   `center` (default), `topleft`, `topright`, `bottomleft`, `bottomright`.
-    *   Example: `imei.exe -p topleft`
+    *   Example: `imei.exe -p topleft` or `imei.exe --pos=topleft`
 *   `-s, --size <points>`: Sets font size in points (default: `20`).
-    *   Example: `imei.exe -s 36`
+    *   Example: `imei.exe -s 36` or `imei.exe --size=36`
 *   `-a, --alpha <percentage>`: Sets transparency (0-100, default: `50`).
-    *   Example: `imei.exe -a 75`
+    *   Example: `imei.exe -a 75` or `imei.exe --alpha=75`
 
 **To Terminate:** Use Task Manager (Ctrl+Shift+Esc), find `imei.exe`, and end the task.
 

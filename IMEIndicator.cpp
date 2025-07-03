@@ -399,23 +399,24 @@ void ShowIndicator(const std::wstring& text) {
  * @brief Retrieves the current input language/IME status.
  */
 std::wstring GetCurrentInputLanguage() {
-    HWND fgWnd = GetForegroundWindow();
-    if (!fgWnd) return L"";
+    HWND hCurWnd = GetFocus(); // Get the window with keyboard focus
+    if (!hCurWnd) {
+        hCurWnd = GetForegroundWindow(); // Fallback to foreground window
+    }
 
-    DWORD fgThreadId = GetWindowThreadProcessId(fgWnd, NULL);
-    HKL hkl = GetKeyboardLayout(fgThreadId);
+    if (!hCurWnd) return L"";
+
+    DWORD dwThreadId = GetWindowThreadProcessId(hCurWnd, NULL);
+    HKL hkl = GetKeyboardLayout(dwThreadId);
 
     LANGID langId = LOWORD(hkl);
     std::wstring currentImeString = L"";
 
     if (PRIMARYLANGID(langId) == LANG_CHINESE) {
-        currentImeString = L"拼";  // Chinese IME
+        return L"拼";
     } else {
-        currentImeString = L"ENG"; // Non-Chinese IME
+        return L"ENG";
     }
-
-    g_lastImeString = currentImeString;
-    return currentImeString;
 }
 
 /**
