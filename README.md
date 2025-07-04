@@ -34,20 +34,33 @@ imei.exe [OPTIONS]
 
 ### Prerequisites
 
-*   A C++ compiler (e.g., MinGW-w64 GCC).
+*   **For MinGW:** A MinGW (for 32-bit) or MinGW-w64 (for 64-bit) toolchain.
+*   **For MSVC:** Visual Studio or Visual Studio Build Tools.
 
 ### Compilation
 
-Navigate to the source directory and use `mingw32-make.exe`.
+Open a terminal in the project directory and use `mingw32-make` with the desired target:
 
-**Using `mingw32-make.exe` (64-bit build):**
+*   **Default (32-bit MinGW):**
+    ```bash
+    mingw32-make
+    ```
+    This creates `imei.exe`.
 
-```bash
-mingw32-make.exe
-```
+*   **64-bit (MinGW-w64):**
+    ```bash
+    mingw32-make mingw64
+    ```
+    This creates `imei64.exe`. Requires the `x86_64-w64-mingw32-g++` compiler in your PATH.
 
-**Using `x86_64-w64-mingw32-g++` directly (64-bit build):**
+*   **64-bit (MSVC):**
+    ```bash
+    mingw32-make msvc
+    ```
+    This creates `imei_msvc.exe`. Requires the `cl.exe` compiler. Best run from a "Developer Command Prompt for VS".
 
-```bash
-x86_64-w64-mingw32-g++ IMEIndicator.cpp -o imei.exe -lgdi32 -luser32 -limm32 -lshell32 -mwindows
-```
+*   **Clean:**
+    ```bash
+    mingw32-make clean
+    ```
+    This removes all build artifacts.
