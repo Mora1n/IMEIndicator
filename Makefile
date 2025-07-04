@@ -4,11 +4,11 @@ TARGET = imei.exe
 
 # MinGW-w64 (64-bit) settings
 CXX_64 = x86_64-w64-mingw32-g++
-TARGET_64 = imei.exe
+TARGET_64 = imei64.exe
 
 # MSVC settings
 CXX_MSVC = cl.exe
-TARGET_MSVC = imei.exe
+TARGET_MSVC = imei_msvc.exe
 CFLAGS_MSVC = /W4 /O2 /DUNICODE /D_UNICODE
 LDFLAGS_MSVC = user32.lib gdi32.lib imm32.lib shell32.lib
 
