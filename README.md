@@ -35,32 +35,33 @@ imei.exe [OPTIONS]
 ### Prerequisites
 
 *   **For MinGW:** A MinGW (for 32-bit) or MinGW-w64 (for 64-bit) toolchain.
-*   **For MSVC:** Visual Studio or Visual Studio Build Tools.
+*   **For MSVC:** Visual Studio or Visual Studio Build Tools. If not using a "Developer Command Prompt for VS", you may need to manually run `"C:\Program Files\Microsoft Visual Studio\<version>\<edition>\VC\Auxiliary\Build\vcvars64.bat"` (adjust path as needed) before compiling.
 
 ### Compilation
 
-Open a terminal in the project directory and use `mingw32-make` with the desired target:
+Open a terminal in the project directory and use `mingw32-make` with the desired target. Executables will be generated in the `bin/` directory, and intermediate files in the `build/` directory.
 
 *   **Default (32-bit MinGW):**
     ```bash
     mingw32-make
     ```
-    This creates `imei.exe`.
+    This creates `bin/imei.exe`.
 
 *   **64-bit (MinGW-w64):**
     ```bash
     mingw32-make mingw64
     ```
-    This creates `imei64.exe`. Requires the `x86_64-w64-mingw32-g++` compiler in your PATH.
+    This creates `bin/imei64.exe`. Requires the `x86_64-w64-mingw32-g++` compiler in your PATH.
 
 *   **64-bit (MSVC):**
     ```bash
-    mingw32-make msvc
+    mingw32-make msvc VCVARS_PATH="C:\Program Files\Microsoft\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
     ```
-    This creates `imei_msvc.exe`. Requires the `cl.exe` compiler. Best run from a "Developer Command Prompt for VS".
+    This creates `bin/imei_msvc.exe`. Requires the `cl.exe` compiler. Replace the `VCVARS_PATH` with your actual `vcvars64.bat` path.
+
 
 *   **Clean:**
     ```bash
     mingw32-make clean
     ```
-    This removes all build artifacts.
+    This removes all build artifacts from `bin/` and `build/`.

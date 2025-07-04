@@ -310,8 +310,8 @@ void UpdateIndicatorPosition() {
     SelectObject(hdc, hOldFont);
     ReleaseDC(g_hIndicatorWnd, hdc);
 
-    g_indicatorWidth = static_cast<int>(std::max(textSizeIndicator.cx, textSizeTime.cx) * 1.05);
-    g_indicatorHeight = static_cast<int>((textSizeIndicator.cy + textSizeTime.cy) * 1.05);
+    g_indicatorWidth = static_cast<int>((static_cast<double>(textSizeIndicator.cx) > static_cast<double>(textSizeTime.cx) ? static_cast<double>(textSizeIndicator.cx) : static_cast<double>(textSizeTime.cx)) * 1.05);
+    g_indicatorHeight = static_cast<int>((static_cast<double>(textSizeIndicator.cy) + static_cast<double>(textSizeTime.cy)) * 1.05);
 
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
