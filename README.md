@@ -13,13 +13,13 @@ A lightweight Windows application to display the current Input Method Editor (IM
     *   **Other languages**: Arabic, Hebrew, Russian, Hindi, and more
 *   **Modern Visual Effects**:
     *   Rounded corner borders for a modern look
-    *   Drop shadow effect for better visibility
-    *   Customizable transparency (50% by default)
+    *   Optional drop shadow effect (disabled by default)
+    *   Customizable transparency (80% by default)
     *   **Dracula theme colors** by default (customizable)
 *   **Flexible Positioning**:
     *   Fixed positions: center, topleft, topright, bottomleft, bottomright
     *   **Mouse position mode** (default): Display at cursor location when IME changes
-*   **Optional Time Display**: Show current time alongside IME status (enabled by default)
+*   **Optional Time Display**: Show current time alongside IME status (disabled by default)
 *   **Customizable Colors**: Support for custom background and text colors via hex codes
 *   **Low Resource Usage**: Built with pure Win32 API for efficiency
 *   **Hotkey Triggered**: Activates on common IME switching hotkeys (e.g., Shift, Ctrl+Space, Win+Space)
@@ -47,7 +47,7 @@ imei.exe [OPTIONS]
 
 *   `-s, --size <points>`: Sets font size in points (default: `20`)
     *   Example: `imei.exe -s 36` or `imei.exe --size=36`
-*   `-a, --alpha <percentage>`: Sets transparency (0-100, default: `50`)
+*   `-a, --alpha <percentage>`: Sets transparency (0-100, default: `80`)
     *   0 = fully transparent, 100 = fully opaque
     *   Example: `imei.exe -a 75` or `imei.exe --alpha=75`
 *   `-r, --radius <pixels>`: Sets corner radius in pixels (default: `10`)
@@ -65,16 +65,16 @@ imei.exe [OPTIONS]
 
 **Features:**
 
-*   `-t, --show-time`: Enable time display alongside IME status (enabled by default)
-    *   Time display is ON by default, use this flag if you've disabled it previously
+*   `-t, --show-time`: Enable time display alongside IME status (disabled by default)
+    *   Use this flag to show current time below the IME indicator
     *   Example: `imei.exe --show-time`
-*   `--no-shadow`: Disable drop shadow effect
+*   `--no-shadow`: Disable drop shadow effect (already disabled by default)
     *   Example: `imei.exe --no-shadow`
 
 ### Usage Examples
 
 ```bash
-# Default settings (mouse position, Dracula theme, 20pt, 50% opacity, with time)
+# Default settings (mouse position, Dracula theme, 20pt, 80% opacity, no time, no shadow)
 imei.exe
 
 # Fixed position at bottom-right corner

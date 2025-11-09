@@ -39,7 +39,7 @@ constexpr int HIDE_DELAY_MS = 1500;
 constexpr int TIME_UPDATE_MS = 1000;
 constexpr int WINDOW_MARGIN = 10;
 constexpr int DEFAULT_FONT_SIZE = 20;
-constexpr int DEFAULT_ALPHA = 50;
+constexpr int DEFAULT_ALPHA = 80;
 constexpr int DEFAULT_RADIUS = 10;
 constexpr int TEXT_BUFFER_SIZE = 256;
 constexpr int MOUSE_OFFSET = 20;
@@ -78,8 +78,8 @@ static int g_alphaPercent = DEFAULT_ALPHA;
 static int g_cornerRadius = DEFAULT_RADIUS;
 static COLORREF g_bgColor = RGB(0x22, 0x21, 0x2c);  // #22212c
 static COLORREF g_textColor = RGB(0x95, 0x80, 0xff); // #9580ff
-static bool g_showTime = true;
-static bool g_enableShadow = true;
+static bool g_showTime = false;
+static bool g_enableShadow = false;
 
 enum Position { CENTER, TOPLEFT, TOPRIGHT, BOTTOMLEFT, BOTTOMRIGHT, MOUSE };
 static Position g_position = MOUSE;
