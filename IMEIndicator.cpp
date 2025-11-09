@@ -43,6 +43,10 @@ constexpr int DEFAULT_ALPHA = 80;
 constexpr int DEFAULT_RADIUS = 10;
 constexpr int TEXT_BUFFER_SIZE = 256;
 constexpr int MOUSE_OFFSET = 20;
+constexpr double WIDTH_PADDING_FACTOR = 1.3;
+constexpr double HEIGHT_PADDING_FACTOR = 1.6;
+constexpr double HEIGHT_PADDING_FACTOR_WITH_TIME = 1.3;
+constexpr DWORD DEBOUNCE_DELAY_MS = 100;
 
 // ============================================================================
 // Global Variables
@@ -55,6 +59,8 @@ static HWND g_hIndicatorWnd = nullptr;
 static HFONT g_hIndicatorFont = nullptr;
 static HFONT g_hTimeFont = nullptr;
 static HMODULE g_hDwmapi = nullptr;
+static HBRUSH g_hBackgroundBrush = nullptr;
+static HRGN g_hCachedRegion = nullptr;
 
 // DWM function pointers
 static DwmSetWindowAttributeProc g_pDwmSetWindowAttribute = nullptr;
@@ -71,6 +77,11 @@ static int g_fixedWidth = 0;
 static int g_fixedHeight = 0;
 static int g_screenWidth = 0;
 static int g_screenHeight = 0;
+static int g_cachedRegionWidth = 0;
+static int g_cachedRegionHeight = 0;
+
+// Debounce tracking
+static DWORD g_lastTriggerTime = 0;
 
 // Configuration
 static int g_fontSize = DEFAULT_FONT_SIZE;
@@ -159,7 +170,9 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             wc.hInstance = (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE);
             wc.lpszClassName = L"IMEIndicator";
             wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-            RegisterClassW(&wc);
+            if (!RegisterClassW(&wc)) {
+                return -1;
+            }
 
             // Create indicator window
             g_hIndicatorWnd = CreateWindowExW(
@@ -167,22 +180,31 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 L"IMEIndicator", L"", WS_POPUP, 0, 0, g_indicatorWidth, g_indicatorHeight,
                 nullptr, nullptr, wc.hInstance, nullptr);
 
+            if (!g_hIndicatorWnd) {
+                return -1;
+            }
+
             SetLayeredWindowAttributes(g_hIndicatorWnd, 0, (255 * g_alphaPercent) / 100, LWA_ALPHA);
             ApplyDropShadow(g_hIndicatorWnd);
 
+            // Create background brush
+            g_hBackgroundBrush = CreateSolidBrush(g_bgColor);
+
             // Create fonts
             HDC hdc = GetDC(g_hIndicatorWnd);
-            int dpi = GetDeviceCaps(hdc, LOGPIXELSY);
-            g_hIndicatorFont = CreateFontW(-MulDiv(g_fontSize, dpi, 72), 0, 0, 0, FW_BOLD,
-                FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
-
-            if (g_showTime) {
-                g_hTimeFont = CreateFontW(-MulDiv(g_fontSize / 2, dpi, 72), 0, 0, 0, FW_NORMAL,
+            if (hdc) {
+                int dpi = GetDeviceCaps(hdc, LOGPIXELSY);
+                g_hIndicatorFont = CreateFontW(-MulDiv(g_fontSize, dpi, 72), 0, 0, 0, FW_BOLD,
                     FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                     CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+
+                if (g_showTime) {
+                    g_hTimeFont = CreateFontW(-MulDiv(g_fontSize / 2, dpi, 72), 0, 0, 0, FW_NORMAL,
+                        FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                        CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+                }
+                ReleaseDC(g_hIndicatorWnd, hdc);
             }
-            ReleaseDC(g_hIndicatorWnd, hdc);
 
             CalculateFixedSize();
             UpdatePosition();
@@ -194,6 +216,8 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         case WM_DESTROY:
             if (g_hIndicatorFont) DeleteObject(g_hIndicatorFont);
             if (g_hTimeFont) DeleteObject(g_hTimeFont);
+            if (g_hBackgroundBrush) DeleteObject(g_hBackgroundBrush);
+            if (g_hCachedRegion) DeleteObject(g_hCachedRegion);
             PostQuitMessage(0);
             break;
 
@@ -206,14 +230,16 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             if (wParam == HIDE_TIMER_ID) {
                 ShowWindow(g_hIndicatorWnd, SW_HIDE);
                 KillTimer(hwnd, HIDE_TIMER_ID);
-            } else if (wParam == TIME_TIMER_ID && g_showTime) {
+            } else if (wParam == TIME_TIMER_ID && g_showTime && IsWindowVisible(g_hIndicatorWnd)) {
                 SYSTEMTIME st;
                 GetLocalTime(&st);
                 wsprintfW(g_szTimeText, L"%02d:%02d:%02d", st.wHour, st.wMinute, st.wSecond);
-                if (IsWindowVisible(g_hIndicatorWnd)) {
-                    InvalidateRect(g_hIndicatorWnd, nullptr, TRUE);
-                }
+                InvalidateRect(g_hIndicatorWnd, nullptr, TRUE);
             }
+            break;
+
+        case WM_DISPLAYCHANGE:
+            CacheScreenMetrics();
             break;
 
         default:
@@ -225,12 +251,12 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 LRESULT CALLBACK IndicatorWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_ERASEBKGND: {
-            HDC hdc = (HDC)wParam;
-            RECT rect;
-            GetClientRect(hwnd, &rect);
-            HBRUSH brush = CreateSolidBrush(g_bgColor);
-            FillRect(hdc, &rect, brush);
-            DeleteObject(brush);
+            if (g_hBackgroundBrush) {
+                HDC hdc = (HDC)wParam;
+                RECT rect;
+                GetClientRect(hwnd, &rect);
+                FillRect(hdc, &rect, g_hBackgroundBrush);
+            }
             return 1;
         }
 
@@ -278,12 +304,20 @@ LRESULT CALLBACK IndicatorWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 LRESULT CALLBACK KeyboardProc(int code, WPARAM wParam, LPARAM lParam) {
     if (code == HC_ACTION && (wParam == WM_KEYUP || wParam == WM_SYSKEYUP)) {
         auto* kb = (KBDLLHOOKSTRUCT*)lParam;
+
+        // Debounce: prevent rapid consecutive triggers
+        DWORD currentTime = GetTickCount();
+        if (currentTime - g_lastTriggerTime < DEBOUNCE_DELAY_MS) {
+            return CallNextHookEx(g_hKeyboardHook, code, wParam, lParam);
+        }
+
         bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
         bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
         bool alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
         bool win = ((GetKeyState(VK_LWIN) | GetKeyState(VK_RWIN)) & 0x8000) != 0;
 
         if (IsIMESwitchKey(kb->vkCode, ctrl, shift, alt, win)) {
+            g_lastTriggerTime = currentTime;
             PostMessage(g_hMainWnd, WM_APP_CHECK_IME, 0, 0);
         }
     }
@@ -297,14 +331,16 @@ LRESULT CALLBACK KeyboardProc(int code, WPARAM wParam, LPARAM lParam) {
 void InitDwmApi() {
     g_hDwmapi = LoadLibraryW(L"dwmapi.dll");
     if (g_hDwmapi) {
-        g_pDwmSetWindowAttribute = (DwmSetWindowAttributeProc)
-            GetProcAddress(g_hDwmapi, "DwmSetWindowAttribute");
-        g_pDwmExtendFrameIntoClientArea = (DwmExtendFrameIntoClientAreaProc)
-            GetProcAddress(g_hDwmapi, "DwmExtendFrameIntoClientArea");
+        // Note: Function pointer casts generate warnings in GCC 8+, but are safe for GetProcAddress
+        g_pDwmSetWindowAttribute = reinterpret_cast<DwmSetWindowAttributeProc>(
+            GetProcAddress(g_hDwmapi, "DwmSetWindowAttribute"));
+        g_pDwmExtendFrameIntoClientArea = reinterpret_cast<DwmExtendFrameIntoClientAreaProc>(
+            GetProcAddress(g_hDwmapi, "DwmExtendFrameIntoClientArea"));
     }
 }
 
 void CacheScreenMetrics() {
+    // Get primary monitor metrics as fallback
     g_screenWidth = GetSystemMetrics(SM_CXSCREEN);
     g_screenHeight = GetSystemMetrics(SM_CYSCREEN);
 }
@@ -313,6 +349,8 @@ void CalculateFixedSize() {
     if (!g_hIndicatorWnd || !g_hIndicatorFont) return;
 
     HDC hdc = GetDC(g_hIndicatorWnd);
+    if (!hdc) return;
+
     HFONT oldFont = (HFONT)SelectObject(hdc, g_hIndicatorFont);
 
     const wchar_t* texts[] = {
@@ -340,17 +378,30 @@ void CalculateFixedSize() {
     SelectObject(hdc, oldFont);
     ReleaseDC(g_hIndicatorWnd, hdc);
 
-    g_fixedWidth = (int)(maxW * 1.3);
-    g_fixedHeight = g_showTime ? (int)((maxH + timeH) * 1.3) : (int)(maxH * 1.6);
+    g_fixedWidth = (int)(maxW * WIDTH_PADDING_FACTOR);
+    g_fixedHeight = g_showTime ? (int)((maxH + timeH) * HEIGHT_PADDING_FACTOR_WITH_TIME) : (int)(maxH * HEIGHT_PADDING_FACTOR);
 }
 
 void ApplyRoundedCorners(HWND hwnd) {
     if (g_cornerRadius > 0) {
         RECT rect;
         GetClientRect(hwnd, &rect);
-        HRGN rgn = CreateRoundRectRgn(0, 0, rect.right, rect.bottom,
+
+        // Only recreate region if dimensions changed
+        if (!g_hCachedRegion || g_cachedRegionWidth != rect.right || g_cachedRegionHeight != rect.bottom) {
+            if (g_hCachedRegion) {
+                DeleteObject(g_hCachedRegion);
+            }
+            g_hCachedRegion = CreateRoundRectRgn(0, 0, rect.right, rect.bottom,
+                g_cornerRadius * 2, g_cornerRadius * 2);
+            g_cachedRegionWidth = rect.right;
+            g_cachedRegionHeight = rect.bottom;
+        }
+
+        // Note: SetWindowRgn takes ownership, so we need to duplicate
+        HRGN rgnCopy = CreateRoundRectRgn(0, 0, rect.right, rect.bottom,
             g_cornerRadius * 2, g_cornerRadius * 2);
-        SetWindowRgn(hwnd, rgn, FALSE);
+        SetWindowRgn(hwnd, rgnCopy, FALSE);
     }
 }
 
@@ -371,38 +422,64 @@ void UpdatePosition() {
         g_indicatorHeight = g_fixedHeight;
     }
 
+    // Get monitor info for multi-monitor support
+    POINT refPoint = {};
+    if (g_position == MOUSE) {
+        GetCursorPos(&refPoint);
+    } else {
+        // Use center of primary monitor as reference
+        refPoint.x = g_screenWidth / 2;
+        refPoint.y = g_screenHeight / 2;
+    }
+
+    HMONITOR hMonitor = MonitorFromPoint(refPoint, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = {};
+    mi.cbSize = sizeof(mi);
+
+    int screenWidth = g_screenWidth;
+    int screenHeight = g_screenHeight;
+    int screenLeft = 0;
+    int screenTop = 0;
+
+    if (GetMonitorInfo(hMonitor, &mi)) {
+        screenLeft = mi.rcWork.left;
+        screenTop = mi.rcWork.top;
+        screenWidth = mi.rcWork.right - mi.rcWork.left;
+        screenHeight = mi.rcWork.bottom - mi.rcWork.top;
+    }
+
     int x, y;
     switch (g_position) {
         case TOPLEFT:
-            x = WINDOW_MARGIN;
-            y = WINDOW_MARGIN;
+            x = screenLeft + WINDOW_MARGIN;
+            y = screenTop + WINDOW_MARGIN;
             break;
         case TOPRIGHT:
-            x = g_screenWidth - g_indicatorWidth - WINDOW_MARGIN;
-            y = WINDOW_MARGIN;
+            x = screenLeft + screenWidth - g_indicatorWidth - WINDOW_MARGIN;
+            y = screenTop + WINDOW_MARGIN;
             break;
         case BOTTOMLEFT:
-            x = WINDOW_MARGIN;
-            y = g_screenHeight - g_indicatorHeight - WINDOW_MARGIN;
+            x = screenLeft + WINDOW_MARGIN;
+            y = screenTop + screenHeight - g_indicatorHeight - WINDOW_MARGIN;
             break;
         case BOTTOMRIGHT:
-            x = g_screenWidth - g_indicatorWidth - WINDOW_MARGIN;
-            y = g_screenHeight - g_indicatorHeight - WINDOW_MARGIN;
+            x = screenLeft + screenWidth - g_indicatorWidth - WINDOW_MARGIN;
+            y = screenTop + screenHeight - g_indicatorHeight - WINDOW_MARGIN;
             break;
         case MOUSE: {
             POINT pt;
             GetCursorPos(&pt);
             x = pt.x + MOUSE_OFFSET;
             y = pt.y + MOUSE_OFFSET;
-            if (x + g_indicatorWidth > g_screenWidth) x = pt.x - g_indicatorWidth - MOUSE_OFFSET;
-            if (y + g_indicatorHeight > g_screenHeight) y = pt.y - g_indicatorHeight - MOUSE_OFFSET;
-            x = std::max(0, std::min(x, g_screenWidth - g_indicatorWidth));
-            y = std::max(0, std::min(y, g_screenHeight - g_indicatorHeight));
+            if (x + g_indicatorWidth > screenLeft + screenWidth) x = pt.x - g_indicatorWidth - MOUSE_OFFSET;
+            if (y + g_indicatorHeight > screenTop + screenHeight) y = pt.y - g_indicatorHeight - MOUSE_OFFSET;
+            x = std::max(screenLeft, std::min(x, screenLeft + screenWidth - g_indicatorWidth));
+            y = std::max(screenTop, std::min(y, screenTop + screenHeight - g_indicatorHeight));
             break;
         }
         default: // CENTER
-            x = (g_screenWidth - g_indicatorWidth) / 2;
-            y = (g_screenHeight - g_indicatorHeight) / 2;
+            x = screenLeft + (screenWidth - g_indicatorWidth) / 2;
+            y = screenTop + (screenHeight - g_indicatorHeight) / 2;
     }
 
     SetWindowPos(g_hIndicatorWnd, nullptr, x, y, g_indicatorWidth, g_indicatorHeight,
@@ -440,6 +517,19 @@ void ParseCommandLine(PWSTR cmdLine) {
     LPWSTR* argv = CommandLineToArgvW(cmdLine, &argc);
     if (!argv) return;
 
+    // Position mapping for cleaner code
+    static const struct {
+        const wchar_t* name;
+        Position pos;
+    } positionMap[] = {
+        {L"topleft", TOPLEFT},
+        {L"topright", TOPRIGHT},
+        {L"bottomleft", BOTTOMLEFT},
+        {L"bottomright", BOTTOMRIGHT},
+        {L"mouse", MOUSE},
+        {L"center", CENTER}
+    };
+
     for (int i = 0; i < argc; ++i) {
         std::wstring arg = argv[i];
 
@@ -466,21 +556,30 @@ void ParseCommandLine(PWSTR cmdLine) {
         }
 
         if (key == L"pos" || key == L"p") {
-            if (value == L"topleft") g_position = TOPLEFT;
-            else if (value == L"topright") g_position = TOPRIGHT;
-            else if (value == L"bottomleft") g_position = BOTTOMLEFT;
-            else if (value == L"bottomright") g_position = BOTTOMRIGHT;
-            else if (value == L"mouse") g_position = MOUSE;
-            else g_position = CENTER;
+            bool found = false;
+            for (const auto& pm : positionMap) {
+                if (value == pm.name) {
+                    g_position = pm.pos;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) g_position = CENTER;
         } else if (key == L"size" || key == L"s") {
             int size = wcstol(value.c_str(), nullptr, 10);
-            if (size > 0) g_fontSize = size;
+            if (size > 0 && size <= 200) {  // Add upper limit
+                g_fontSize = size;
+            }
         } else if (key == L"alpha" || key == L"a") {
             int alpha = wcstol(value.c_str(), nullptr, 10);
-            if (alpha >= 0 && alpha <= 100) g_alphaPercent = alpha;
+            if (alpha >= 0 && alpha <= 100) {
+                g_alphaPercent = alpha;
+            }
         } else if (key == L"radius" || key == L"r") {
             int radius = wcstol(value.c_str(), nullptr, 10);
-            if (radius >= 0) g_cornerRadius = radius;
+            if (radius >= 0 && radius <= 100) {  // Add upper limit
+                g_cornerRadius = radius;
+            }
         } else if (key == L"bgcolor" || key == L"bg") {
             g_bgColor = ParseColor(value);
         } else if (key == L"textcolor" || key == L"fg" || key == L"tc") {
